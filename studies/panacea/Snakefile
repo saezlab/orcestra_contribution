@@ -1,0 +1,62 @@
+# check this: https://stackoverflow.com/questions/44561183/multiple-inputs-and-outputs-in-a-single-rule-snakemake-file
+
+
+rule get_pset:
+	input:
+		"download/expression.csv"
+		"download/metadata.csv"
+	output:
+		"panacea.rds"
+	shell:
+		"Rscript scripts/get_panacea_pset.R -d download -f metadata.csv --input_file {input}"
+
+
+expression_files = ["GSE186341_ASPC_dream_counts.csv.gz",
+		"GSE186341_DU145_dream_counts.csv.gz",
+		"GSE186341_EFO21_dream_counts.csv.gz",
+		"GSE186341_H1793_dream_counts.csv.gz",
+		"GSE186341_HCC1143_dream_counts.csv.gz",
+		"GSE186341_HF2597_dream_counts.csv.gz",
+		"GSE186341_HSTS_dream_counts.csv.gz",
+		"GSE186341_KRJ1_dream_counts.csv.gz",
+		"GSE186341_LNCAP_dream_counts.csv.gz",
+		"GSE186341_PANC1_dream_counts.csv.gz",
+		"GSE186341_U87_dream_counts.csv.gz"]		
+
+
+rule get_meta_data:
+	input:
+		"download/expression.csv"
+	output:
+		"download/metadata.csv"
+	shell:
+		"Rscript scripts/get_panacea_metadata.R -d download -f metadata.csv --input_file {input}"
+
+
+rule format_expression:
+	input: 
+		["download/{f}".format(f=filename) for filename in expression_files]
+	output:
+		"download/expression.csv"
+	run:
+		string_of_files = ','.join(expression_files)
+		shell("Rscript scripts/process_panacea_expression.R -d download -f expression.csv --input_files {string_of_files}")
+
+## this is not really useful, because the matedata and the expression data has no common IDs. 
+## We will generate the metadata from the expression data. 
+#rule download_meta:
+#	output:
+#		"download/metadata.csv"
+#	shell:
+#		"Rscript scripts/get_meta_GEO.R --destination_dir download --filename metadata.csv --geo_accession GSE186341"
+		
+
+rule download_data:
+	output:
+		["download/{f}".format(f=filename) for filename in expression_files]
+	run:
+		link_base = "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE186nnn/GSE186341/suppl/"
+		for f in range(len(expression_files)):
+			link = link_base + expression_files[f]
+			f_output = "download/" + expression_files[f]
+			shell("wget {link} -O {f_output}")
